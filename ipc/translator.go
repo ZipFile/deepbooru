@@ -1,29 +1,28 @@
-package subprocess_processor
+package deepbooru_ipc
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"io"
 	"log"
 	"os"
 )
 
-var newline = []byte{0x0A}
-
 func TranslateReader(r io.Reader, out chan<- Message) {
-	var m *Message
 	var err error
 	scanner := bufio.NewScanner(r)
 
 	for scanner.Scan() {
-		m, err = Decode(scanner.Bytes())
+		var m Message
+		err = json.Unmarshal(scanner.Bytes(), &m)
 
 		if err != nil {
 			log.Printf("failed to decode message: %s", err)
-			return
+			continue
 		}
 
-		out <- *m
+		out <- m
 	}
 
 	err = scanner.Err()
@@ -35,37 +34,16 @@ func TranslateReader(r io.Reader, out chan<- Message) {
 	panic(err)
 }
 
-func write(w io.Writer, m *Message) error {
-	if m == nil {
-		return nil
-	}
-
-	data, err := encode(m)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(data)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(newline)
-
-	return err
-}
-
 func TranslateWriter(w io.Writer, in <-chan Message) {
+	var err error
+	encoder := json.NewEncoder(w)
+
 	for m := range in {
-		err := write(w, &m)
+		err = encoder.Encode(&m)
 
 		if err == nil {
 			continue
-		}
-
-		if errors.Is(err, os.ErrClosed) {
+		} else if errors.Is(err, os.ErrClosed) {
 			return
 		}
 

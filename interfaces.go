@@ -30,8 +30,8 @@ const (
 )
 
 type Tag struct {
-	Name  string
-	Score float32
+	Name  string  `json:"name"`
+	Score float32 `json:"score"`
 }
 
 type Info struct {

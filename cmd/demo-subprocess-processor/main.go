@@ -8,7 +8,8 @@ import (
 	"os/signal"
 	"time"
 
-	"deepbooru/internal/processor/subprocess"
+	"deepbooru/internal/nurse"
+	"deepbooru/ipc"
 )
 
 func main() {
@@ -18,22 +19,25 @@ func main() {
 	}
 
 	sigs := make(chan os.Signal)
-	path := os.Args[1]
-	args := os.Args[2:]
-	p := subprocess_processor.New(path, args, os.Environ(), 15*time.Second)
+	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	scanner := bufio.NewScanner(os.Stdin)
 	var taskCtx context.Context
 	var taskCancel context.CancelFunc
-	done := make(chan struct{})
 
 	signal.Notify(sigs, os.Interrupt)
+
+	n := nurse.Nurse{
+		Path:        os.Args[1],
+		Args:        os.Args[2:],
+		Environ:     os.Environ(),
+		KillTimeout: 15 * time.Second,
+	}
 
 	go func() {
 		defer close(done)
 
 		fmt.Println("Starting worker...")
-		err := p.Run(ctx)
+		err := n.Run(ctx)
 
 		if err != nil {
 			panic(err)
@@ -41,13 +45,25 @@ func main() {
 	}()
 
 	go func() {
+		stop := false
+
 		for _ = range sigs {
-			if taskCancel != nil {
+			if taskCancel == nil {
+				if stop {
+					cancel()
+				} else {
+					stop = true
+				}
+			} else {
+				stop = false
 				fmt.Println("Aborting task")
 				taskCancel()
 			}
 		}
 	}()
+
+	p := deepbooru_ipc.Processor{Bus: &n}
+	scanner := bufio.NewScanner(os.Stdin)
 
 	for scanner.Scan() {
 		url := scanner.Text()
@@ -55,6 +71,9 @@ func main() {
 		if url == "" {
 			fmt.Println("Terminating")
 			break
+		} else if !p.IsReady() {
+			fmt.Println("Not ready yet")
+			continue
 		}
 
 		taskCtx, taskCancel = context.WithCancel(context.Background())
@@ -69,6 +88,7 @@ func main() {
 		}
 
 		taskCancel()
+		taskCancel = nil
 	}
 
 	if err := scanner.Err(); err != nil {

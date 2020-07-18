@@ -4,6 +4,8 @@ import json
 import re
 import signal
 import sys
+import time
+import random
 from urllib.parse import urlparse
 
 
@@ -68,6 +70,12 @@ def main():
             continue
 
         scheme, netloc, path, params, query, fragment = urlparse(url)
+        r = random.random()
+
+        try:
+            time.sleep(18 if r > 0.75 else (r * 3 + 2))
+        except KeyboardInterrupt:
+            continue
 
         result({
             "scheme:" + scheme: 1,
