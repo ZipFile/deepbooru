@@ -49,11 +49,5 @@ func (pp *pooledProcessor) Capacity() int {
 }
 
 func (pp *pooledProcessor) IsReady() bool {
-	for p := range pp.pool {
-		if !p.IsReady() {
-			return false
-		}
-	}
-
-	return len(pp.pool) > 0
+	return pp != nil && pp.pool != nil
 }

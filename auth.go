@@ -24,8 +24,6 @@ type Authorizer interface {
 
 type AuthorizerFunc func(credentials string) (Auth, error)
 
-func (f AuthorizerFunc) Close() {}
-
 func (f AuthorizerFunc) Authorize(credentials string) (Auth, error) {
 	return f(credentials)
 }

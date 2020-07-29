@@ -116,7 +116,10 @@ func TestProcessorProcessTimeout(t *testing.T) {
 }
 
 func TestProcessorCapacity(t *testing.T) {
-	p := Processor{}
+	b := testBus{}
+	p := Processor{Bus: &b}
+	b.in = make(chan Message)
+	b.out = b.in
 
 	t.Run("busy", func(t *testing.T) {
 		p.setBusy(true)
